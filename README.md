@@ -13,6 +13,7 @@ Firewalla NTS: Encrypted Time & Transparent Intercept
 *   **NEVER RUN "APT UPGRADE".** When installing, this script only installs `chrony`. Do not attempt to upgrade the full system packages, as Firewalla uses a custom OS kernel. Upgrading generic Ubuntu packages over it will destabilize or brick your box.
 *   **I TESTED THIS ON A FIREWALLA GOLD PLUS.** I assume it should work on every other modern Firewalla router, but I do not know that for sure.  Addtionally I updated the Firewalla software to Ubuntu 22.04, so while it probably will work on older versions (18.04, 20.04), I am not 100% certain.
 *   **PLEASE READ THIS WHOLE README FILE TO KNOW WHAT YOU ARE GETTING INTO.** And how to get out of it if needed.
+*   **THIS DOESN'T CHANGE THE FACT THAT FIREWALLA ONLY SUPPORTS NTP INTERCEPT** All your network devices will need to still use NTP, not NTS, to stay in sync. 
 
 * * *
 
