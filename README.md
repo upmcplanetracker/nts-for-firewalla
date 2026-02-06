@@ -14,6 +14,15 @@ Firewalla NTS: Encrypted Time & Transparent Intercept
 
 * * *
 
+⚠️ Important Note on "NTP Intercept"
+------------------------------------
+
+Because this script applies its own manual firewall rules (\`iptables\`) every time the device boots, **the "NTP Intercept" slider in the Firewalla App may no longer reflect reality.**
+
+Even if you turn the slider "OFF" in the app, this script will re-enable the interception rules the next time the device reboots. This is intentional design to ensure your network remains secure and transparently intercepted at all times.
+
+* * *
+
 Why replace the default NTP?
 ----------------------------
 
@@ -92,3 +101,44 @@ Due to the secure sandbox Firewalla uses, the `_chrony` service user is often bl
 *   **PTB:** German National Metrology Institute (Static IP)
 
 **Limitation:** If these organizations change their physical IP addresses (rare), your sync will fail with that server until you update the IP addresses in the script.
+
+* * *
+
+❌ Uninstall / Revert to Stock
+-----------------------------
+
+If you want to remove Chrony and go back to the default Firewalla time settings, follow these steps exactly.
+
+### Step 1: Delete the Persistence Script
+
+This stops the rules from re-applying on the next boot.
+
+    sudo rm /home/pi/.firewalla/config/post_main.d/install_and_enforce_chrony.sh
+
+### Step 2: Clean up /etc/hosts
+
+Remove the hardcoded IP addresses we added.
+
+    sudo sed -i '/time.cloudflare.com/d' /etc/hosts
+    sudo sed -i '/ntppool1.time.nl/d' /etc/hosts
+    sudo sed -i '/ptbtime1.ptb.de/d' /etc/hosts
+
+### Step 3: Remove Chrony
+
+Uninstall the package and its configurations.
+
+    unalias apt
+    unalias apt-get
+    sudo apt-get remove --purge -y chrony
+
+### Step 4: Restore Default Time Service
+
+Firewalla uses `systemd-timesyncd` by default. We need to wake it back up.
+
+    sudo systemctl unmask systemd-timesyncd
+    sudo systemctl enable systemd-timesyncd
+    sudo systemctl start systemd-timesyncd
+
+### Step 5: Reboot (Mandatory)
+
+You must reboot to flush the manual `iptables` firewall rules from memory and let Firewalla take control again.
