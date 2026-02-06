@@ -45,9 +45,10 @@ _Note: You will need to type this again if you log out and log back in._
 
 1.  SSH into your Firewalla.
 2.  Create the script file: (`vi` is the built in editor, but I use `nano` which I installed via `sudo apt install nano`)
-    
-    `sudo mkdir -p /home/pi/.firewalla/config/post_main.d`
-    `sudo nano /home/pi/.firewalla/config/post_main.d/install_and_enforce_chrony.sh`
+
+    ```bash
+    sudo mkdir -p /home/pi/.firewalla/config/post_main.d
+    sudo nano /home/pi/.firewalla/config/post_main.d/install_and_enforce_chrony.sh
     
 4.  Paste the contents of the script provided in this repo.
 5.  Save and Exit (`Ctrl+O`, `Enter`, `Ctrl+X`).
