@@ -137,6 +137,7 @@ Uninstall the package and its configurations.
 
 Firewalla uses `systemd-timesyncd` by default. We need to wake it back up.
 
+    sudo apt install ntp -y
     sudo systemctl unmask systemd-timesyncd
     sudo systemctl enable systemd-timesyncd
     sudo systemctl start systemd-timesyncd
