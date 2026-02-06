@@ -13,7 +13,7 @@ Firewalla NTS: Encrypted Time & Transparent Intercept
 *   **NEVER RUN "APT UPGRADE".** When installing, this script only installs `chrony`. Do not attempt to upgrade the full system packages, as Firewalla uses a custom OS kernel. Upgrading generic Ubuntu packages over it will destabilize or brick your box.
 *   **I TESTED THIS ON A FIREWALLA GOLD PLUS.** I assume it should work on every other modern Firewalla router, but I do not know that for sure.  Addtionally I updated the Firewalla software to Ubuntu 22.04 using the newest image for my box on the Firewalla website, so while it probably will work on older versions (18.04, 20.04), I am not 100% certain.
 *   **PLEASE READ THIS WHOLE README FILE TO KNOW WHAT YOU ARE GETTING INTO.** And how to get out of it if needed.
-*   **THIS DOESN'T CHANGE THE FACT THAT FIREWALLA ONLY SUPPORTS NTP INTERCEPT.** All your network devices will need to still use NTP, not NTS, to stay in sync. This is important if you install Ubuntu 25.10 or newer as it defaults to Chrony/NTS, which will fail in syncing to the Firewalla if NTP intercept is on for that network. You will need to uninstall Chrony and install another NTP APT package to keep your Ubhntu device in sync, or turn off NTP intercept for the network that device is on. 
+*   **THIS DOESN'T CHANGE THE FACT THAT FIREWALLA ONLY SUPPORTS NTP INTERCEPT.** All your network devices will need to still use NTP, not NTS, to stay in sync. This is important if you install Ubuntu 25.10 or newer as it defaults to Chrony/NTS, which will fail in syncing to the Firewalla if NTP intercept is on for that network. You will need to uninstall Chrony and install another NTP APT package to keep your Ubhntu device in sync, or turn off NTP intercept for the network that device is on so that your device's NTS request can reach the Internet. 
 
 * * *
 
@@ -31,7 +31,7 @@ Why replace the default NTP?
 
 By default, standard NTP (Network Time Protocol) sends time data in **unencrypted plain text**. Any hacker, ISP, or government agency on the path can inspect or spoof these packets (Man-in-the-Middle attacks).
 
-This project replaces the default service with **Chrony**, configured to use encrypted **NTS (Network Time Security)**. This changes the attack point to the time server - you need to be able to trust the time server to provide you accurate time.
+This project replaces the default service with **Chrony**, configured to use encrypted **NTS (Network Time Security)**.
 
 ### The Benefits
 
