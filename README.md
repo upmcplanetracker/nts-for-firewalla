@@ -19,7 +19,7 @@ Firewalla NTS: Encrypted Time & Transparent Intercept
 ⚠️ Important Note on "NTP Intercept"
 ------------------------------------
 
-Because this script applies its own manual firewall rules (\`iptables\`) every time the device boots, **the "NTP Intercept" slider in the Firewalla App may no longer reflect reality.**
+Because this script applies its own manual firewall rules (`iptables`) every time the device boots, **the "NTP Intercept" slider in the Firewalla App may no longer reflect reality.**
 
 Even if you turn the slider "OFF" in the app, this script will re-enable the interception rules the next time the device reboots. This is intentional design to ensure your network remains secure and transparently intercepted at all times.
 
