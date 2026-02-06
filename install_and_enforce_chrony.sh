@@ -19,6 +19,13 @@
 # Run it once manually: sudo /home/pi/.firewalla/config/post_main.d/install_and_enforce_chrony.sh
 # ==============================================================================
 
+# --- PART 0: SAFETY & PREP ---
+# Firewalla aliases apt/apt-get to prevent users from breaking the OS.
+# We unalias them inside this script to ensure the install command works.
+# The '|| true' prevents errors if the alias is already gone.
+unalias apt 2>/dev/null || true
+unalias apt-get 2>/dev/null || true
+
 # --- PART 1: SAFETY CHECKS & INSTALL ---
 # Check if Chrony is installed. If not, install ONLY chrony (NO UPGRADES).
 if ! command -v chronyd &> /dev/null; then
@@ -54,7 +61,7 @@ fi
 if ! grep -q "ntppool1.time.nl" /etc/hosts; then
     echo "94.198.159.15    ntppool1.time.nl" >> /etc/hosts
 fi
-# 3. PTB (German National Metrology Institute) - Backup 2 (The Tank)
+# 3. PTB (German National Metrology Institute) - Backup 2
 if ! grep -q "ptbtime1.ptb.de" /etc/hosts; then
     echo "192.53.103.108   ptbtime1.ptb.de" >> /etc/hosts
 fi
