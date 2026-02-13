@@ -64,7 +64,9 @@ _Note: You will need to type this again if you log out and log back in._
     sudo nano /home/pi/.firewalla/config/post_main.d/install_and_enforce_chrony.sh
     
 4.  Paste the contents of the script provided in this repo.
-5.  Save and Exit (`Ctrl+O`, `Enter`, `Ctrl+X`).
+5.  Using `ip a` from the Firewalla ssh prompt, find out what interfaces you are using/which networks you want NTS to work with networkwise on the firewalla.  Typically lan1 will be `br0`.  lan2 will be `br1`.
+6.  Scroll down to section 5 of the script and change the interfaces to the ones you want to use.
+7.  Save and Exit (`Ctrl+O`, `Enter`, `Ctrl+X`).
 
 ### Step 3: Permission & Run
 
