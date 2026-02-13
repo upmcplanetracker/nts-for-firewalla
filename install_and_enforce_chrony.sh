@@ -103,18 +103,24 @@ systemctl enable chrony
 systemctl restart chrony
 
 # --- PART 5: FORCE NTP INTERCEPT (The "Force Field") ---
-# Redirects all Port 123 traffic from LAN devices back to Chrony.
-# Devices "think" they are talking to Google/Apple, but Chrony answers securely.
+# Add the interfaces you want to intercept inside the parentheses below.
+# Find your interfaces via the ip a command
+# Separate them with a space. (e.g., "br0 br1 br0.10 eth1")
+INTERFACES=("br0" "br1")
 
 echo "Waiting for network..."
 sleep 5
 
-# IPv4 Redirect
-iptables -t nat -D PREROUTING -i br0 -p udp --dport 123 -j REDIRECT --to-port 123 2>/dev/null || true
-iptables -t nat -A PREROUTING -i br0 -p udp --dport 123 -j REDIRECT --to-port 123
+for iface in "${INTERFACES[@]}"; do
+    echo "Applying NTP intercept rules for interface: $iface"
+    
+    # IPv4 Redirect
+    iptables -t nat -D PREROUTING -i $iface -p udp --dport 123 -j REDIRECT --to-port 123 2>/dev/null || true
+    iptables -t nat -A PREROUTING -i $iface -p udp --dport 123 -j REDIRECT --to-port 123
 
-# IPv6 Redirect
-ip6tables -t nat -D PREROUTING -i br0 -p udp --dport 123 -j REDIRECT --to-port 123 2>/dev/null || true
-ip6tables -t nat -A PREROUTING -i br0 -p udp --dport 123 -j REDIRECT --to-port 123
+    # IPv6 Redirect
+    ip6tables -t nat -D PREROUTING -i $iface -p udp --dport 123 -j REDIRECT --to-port 123 2>/dev/null || true
+    ip6tables -t nat -A PREROUTING -i $iface -p udp --dport 123 -j REDIRECT --to-port 123
+done
 
 echo "Chrony NTS Setup Complete. Run 'chronyc sources -v' to verify."
