@@ -85,13 +85,26 @@ Run `chronyc sources -v`. You should see:
 *   **`*`** (Asterisk): The Primary server (likely Cloudflare).
 *   **`+`** (Plus): The Backup servers (TimeNL/PTB).
 *   **`?`** (Question Mark): A server that is unreachable (normal during startup/internet hiccups).
+<img width="657" height="273" alt="image" src="https://github.com/user-attachments/assets/233b2fd1-5636-4258-b097-975294d15e75" />
+
 
 ### 2\. Verify Encryption (NTS)
 
 Run `sudo chronyc authdata`.  
 Look for the **Cookies** column. If you see a number greater than 0 (e.g., `8`), encryption is **ACTIVE**. If it is 0, the handshake failed.
+<img width="607" height="109" alt="image" src="https://github.com/user-attachments/assets/3aca18b0-ab84-4def-b6fc-797886b1b8a5" />
 
 * * *
+
+Adding the Script to Crontab
+----------------------------
+Every time Firewalla reboots or even after some pushed updates without a reboot, the Firewalla will get rid of Chrony and put the NTP back to stock.  To prevent this from happening, add the chrony script to the crontab.
+`crontab -e`
+add the line
+`0 4 * * * /home/pi/.firewalla/config/post_main.d/install_and_enforce_chrony.sh &>/dev/null`
+to the bottom and save. Ths will have the Firewalla run the install script every day at 4 am local time, which is typically a few hours after Firewalla sends out updates.
+
+***
 
 🔧 Technical Details & Caveats
 ------------------------------
