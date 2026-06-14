@@ -1,126 +1,88 @@
 #!/bin/bash
-# ==============================================================================
-# Firewalla NTS-Secured Chrony Installer & Enforcer
-# ------------------------------------------------------------------------------
-# DISCLAIMER: This script is NOT associated with Firewalla Inc.
-# USE AT YOUR OWN RISK. I am not responsible for bricked devices.
-# ------------------------------------------------------------------------------
-#
-# FEATURES:
-# 1. Installs Chrony (modern, secure NTP) without breaking Firewalla core.
-# 2. Configures NTS (Network Time Security) with the "Holy Trinity" of servers.
-# 3. Fixes DNS/Permission issues via /etc/hosts injection.
-# 4. Forces all LAN traffic (IPv4 & IPv6) on Port 123 to use this secure stream.
-# 5. Persists across reboots via the post_main.d folder.
-#
-# INSTRUCTIONS:
-# Place this file in: /home/pi/.firewalla/config/post_main.d/install_and_enforce_chrony.sh
-# Make it executable: chmod +x /home/pi/.firewalla/config/post_main.d/install_and_enforce_chrony.sh
-# Run it once manually: sudo /home/pi/.firewalla/config/post_main.d/install_and_enforce_chrony.sh
-# ==============================================================================
 
-# --- PART 0: SAFETY & PREP ---
-# Firewalla aliases apt/apt-get to prevent users from breaking the OS.
-# We unalias them inside this script to ensure the install command works.
-# The '|| true' prevents errors if the alias is already gone.
-unalias apt 2>/dev/null || true
-unalias apt-get 2>/dev/null || true
+# --- STAGE 1: ROOT & INITIAL SETTLE ---
+if [ "$EUID" -ne 0 ]; then
+  exec sudo "$0" "$@"
+fi
 
-# --- PART 1: SAFETY CHECKS & INSTALL ---
-# Check if Chrony is installed. If not, install ONLY chrony (NO UPGRADES).
+echo "Waiting 30 seconds for Firewalla baseline boot to settle..."
+sleep 30
+
+echo "Checking for internet connectivity..."
+for i in {1..30}; do
+    if ping -c 1 8.8.8.8 &>/dev/null; then
+        echo "Internet is UP."
+        break
+    fi
+    echo "Still waiting... ($i/30)"
+    sleep 2
+done
+
+# --- STAGE 2: FORCE UNLOCK & INSTALL CHRONY ---
 if ! command -v chronyd &> /dev/null; then
-    echo "Installing Chrony..."
-    apt-get update
-    # CRITICAL: We only install chrony. NEVER run 'apt upgrade' on Firewalla!
-    apt-get install -y chrony
+    echo "Attempting to install chrony..."
+    
+    # Wait out or clear stale apt/dpkg locks that run on boot
+    while fuser /var/lib/dpkg/lock-frontend /var/lib/apt/lists/lock &>/dev/null; do
+        echo "Apt is being used by another process. Waiting 5s..."
+        sleep 5
+    done
+
+    until /usr/bin/apt-get update && /usr/bin/apt-get install -y chrony; do
+        echo "Apt execution failed. Retrying in 10s..."
+        sleep 10
+    done
 fi
 
-# Stop and disable conflict services (systemd-timesyncd and legacy ntp)
-systemctl stop systemd-timesyncd
-systemctl disable systemd-timesyncd
-if systemctl is-active --quiet ntp; then
-    systemctl stop ntp
-    systemctl disable ntp
-fi
+# --- STAGE 3: KILL COMPETITORS ---
+systemctl stop systemd-timesyncd 2>/dev/null || true
+systemctl disable systemd-timesyncd 2>/dev/null || true
+systemctl stop ntp 2>/dev/null || true
+systemctl disable ntp 2>/dev/null || true
+systemctl mask ntp 2>/dev/null || true
 
-# --- PART 2: APPLY SECCOMP FIX ---
-# Firewalla's kernel restricts system calls. We must relax Chrony's sandbox filter
-# or it will fail to resolve DNS and crash.
-sed -i 's/DAEMON_OPTS="-F 1"/DAEMON_OPTS="-F -1"/g' /etc/default/chrony
+# --- STAGE 4: APPLY CONFIG ---
+# Remove severe rate-limiting constraint if present
+sed -i 's/DAEMON_OPTS="-F 1"/DAEMON_OPTS="-F -1"/g' /etc/default/chrony 2>/dev/null || true
 
-# --- PART 3: THE "CAVEMAN" HOSTS FIX ---
-# NTS requires DNS, but the _chrony user is often blocked from reading DNS on Firewalla.
-# We hardcode the "Holy Trinity" of stable, government-grade NTS servers into /etc/hosts.
-# WARNING: If these IP addresses change, time sync will fail until updated.
+# Populate /etc/hosts so Chrony can bootstrap NTS keys even if local DNS is starting up
+for host in "162.159.200.123 time.cloudflare.com" "94.198.159.15 ntppool1.time.nl" "192.53.103.108 ptbtime1.ptb.de"; do
+    IP=$(echo $host | cut -d' ' -f1)
+    NAME=$(echo $host | cut -d' ' -f2)
+    if ! grep -q "$NAME" /etc/hosts; then
+        echo "$IP $NAME" >> /etc/hosts
+    fi
+done
 
-# 1. Cloudflare (Global Anycast) - Primary
-if ! grep -q "time.cloudflare.com" /etc/hosts; then
-    echo "162.159.200.123  time.cloudflare.com" >> /etc/hosts
-fi
-# 2. TimeNL (Netherlands Government) - Backup 1
-if ! grep -q "ntppool1.time.nl" /etc/hosts; then
-    echo "94.198.159.15    ntppool1.time.nl" >> /etc/hosts
-fi
-# 3. PTB (German National Metrology Institute) - Backup 2
-if ! grep -q "ptbtime1.ptb.de" /etc/hosts; then
-    echo "192.53.103.108   ptbtime1.ptb.de" >> /etc/hosts
-fi
-
-# --- PART 4: CREATE CONFIGURATION ---
-# We overwrite the config to ensure strict NTS usage and allow LAN clients.
 cat > /etc/chrony/chrony.conf <<EOF
-# --- SERVERS ---
-# 1. Cloudflare (Fastest)
 server time.cloudflare.com iburst nts
-
-# 2. TimeNL (Highly Trusted Backup)
 server ntppool1.time.nl iburst nts
-
-# 3. PTB Germany (The "Nuclear Option" for stability)
 server ptbtime1.ptb.de iburst nts
-
-# --- SETTINGS ---
-# Allow drift monitoring
 driftfile /var/lib/chrony/chrony.drift
-
-# Allow local networks to query us (Interception targets)
 allow 192.168.0.0/16
 allow 10.0.0.0/8
 allow 172.16.0.0/12
-
-# Sync the Real Time Clock (RTC)
 rtcsync
-
-# Jump the clock if offset is larger than 1 second (Fast recovery)
 makestep 1 3
 EOF
 
-# Fix permissions and Restart Service
+# --- STAGE 5: START UP ---
 chown root:root /etc/chrony/chrony.conf
 chmod 644 /etc/chrony/chrony.conf
-systemctl unmask chrony
+
+# Unmask and restart both potential systemd alias variations safely
+systemctl unmask chrony chronyd 2>/dev/null || true
 systemctl enable chrony
 systemctl restart chrony
 
-# --- PART 5: FORCE NTP INTERCEPT (The "Force Field") ---
-# Add the interfaces you want to intercept inside the parentheses below.
-# Find your interfaces via the ip a command
-# Separate them with a space. (e.g., "br0 br1 br0.10 eth1")
-INTERFACES=("br0" "br1")
-
-echo "Waiting for network..."
+# --- STAGE 6: NETWORK INTERCEPT ---
 sleep 5
+# Purge and re-apply IPv4 redirect for local bridge interfaces
+iptables -t nat -D PREROUTING -i br0 -p udp --dport 123 -j REDIRECT --to-port 123 2>/dev/null || true
+iptables -t nat -A PREROUTING -i br0 -p udp --dport 123 -j REDIRECT --to-port 123
 
-for iface in "${INTERFACES[@]}"; do
-    echo "Applying NTP intercept rules for interface: $iface"
-    
-    # IPv4 Redirect
-    iptables -t nat -D PREROUTING -i $iface -p udp --dport 123 -j REDIRECT --to-port 123 2>/dev/null || true
-    iptables -t nat -A PREROUTING -i $iface -p udp --dport 123 -j REDIRECT --to-port 123
+# Purge and re-apply IPv6 redirect (Firewalla often handles native v6)
+ip6tables -t nat -D PREROUTING -i br0 -p udp --dport 123 -j REDIRECT --to-port 123 2>/dev/null || true
+ip6tables -t nat -A PREROUTING -i br0 -p udp --dport 123 -j REDIRECT --to-port 123 2>/dev/null || true
 
-    # IPv6 Redirect
-    ip6tables -t nat -D PREROUTING -i $iface -p udp --dport 123 -j REDIRECT --to-port 123 2>/dev/null || true
-    ip6tables -t nat -A PREROUTING -i $iface -p udp --dport 123 -j REDIRECT --to-port 123
-done
-
-echo "Chrony NTS Setup Complete. Run 'chronyc sources -v' to verify."
+echo "Chrony NTS Setup Complete."
