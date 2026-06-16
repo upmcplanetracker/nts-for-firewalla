@@ -1,44 +1,45 @@
 Firewalla NTS: Encrypted Time & Transparent Intercept
 =====================================================
 
-**Secure your network time with authenticated NTS (Network Time Security) and force all devices on the network to use it via Firewalla's NTP Intercept feature.**
+Secure your network time with authenticated **NTS (Network Time Security)** and force all devices on your LAN to use it via Firewalla’s NTP Intercept feature – **without sacrificing security or stability**.
 
 * * *
 
 ⚠️ BIG DISCLAIMER (READ THIS FIRST)
 -----------------------------------
 
-*   **I AM NOT AFFLIATED WITH FIREWALLA.** This project is a community contribution and is NOT supported by Firewalla Inc.
-*   **USE AT YOUR OWN RISK.** Modifying your router always carries risks. I am not responsible if your device malfunctions. Know how to reflash it and have a reflash drive ready before proceeding.
-*   **NEVER RUN "APT UPGRADE".** When installing, this script only installs `chrony`. Do not attempt to upgrade the full system packages, as Firewalla uses a custom OS kernel. Upgrading generic Ubuntu packages over it will destabilize or brick your box.
-*   **I TESTED THIS ON A FIREWALLA GOLD PLUS.** I assume it should work on every other modern Firewalla router, but I do not know that for sure.  Addtionally I updated the Firewalla software to Ubuntu 22.04 using the newest image for my box on the Firewalla website, so while it probably will work on older versions (18.04, 20.04), I am not 100% certain.
-*   **PLEASE READ THIS WHOLE README FILE TO KNOW WHAT YOU ARE GETTING INTO.** And how to get out of it if needed.
-*   **THIS DOESN'T CHANGE THE FACT THAT FIREWALLA ONLY SUPPORTS NTP INTERCEPT.** All your network devices will need to still use NTP, not NTS, to stay in sync. This is important if you install Ubuntu 25.10 or newer as it defaults to Chrony/NTS, which will fail in syncing to the Firewalla if NTP intercept is on for that network. You will need to uninstall Chrony and install another NTP APT package to keep your Ubhntu device in sync, or turn off NTP intercept for the network that device is on so that your device's NTS request can reach the Internet.
-*   **THIS CURRENTLY MAY ONLY WORK ON A NETWORK WITH 1 LAN ACTIVATED.** I haven't tested it in a multi-lan setup (yet).  
+> **I AM NOT AFFILIATED WITH FIREWALLA.** This is a **community contribution** and is **NOT supported** by Firewalla Inc.
+> 
+> **USE AT YOUR OWN RISK.** Modifying your router always carries risks. I am not responsible if your device malfunctions. Know how to **reflash** your Firewalla and have a recovery drive ready **before** proceeding.
+> 
+> **NEVER RUN `APT UPGRADE`.** This script only installs `chrony` – it does **not** upgrade system packages. Firewalla uses a custom OS kernel; upgrading generic Ubuntu packages will **destabilize or brick** your box.
+> 
+> **TESTED ON FIREWALLA GOLD PLUS** running **Ubuntu 22.04** (fresh image from Firewalla). Should work on other modern models, but **not guaranteed** on older OS versions (18.04, 20.04).
+> 
+> **PLEASE READ THIS ENTIRE README** to understand what you’re getting into – **and how to revert** if needed.
+> 
+> **NTP INTERCEPT STILL APPLIES.** Clients on your network must still use **plain NTP** (not NTS) because Firewalla only intercepts NTP. If you have devices with Chrony/NTS (e.g., Ubuntu 25.10+), they will fail to sync unless you either:
+> 
+> *   Reconfigure them to use NTP, **or**
+> *   Turn off NTP Intercept for that network (so their NTS requests reach the internet directly).
+
+**⚠️ Important:** Because this script applies its own firewall rules (`iptables`) at every boot, the **"NTP Intercept" slider in the Firewalla App may no longer reflect reality**.  
+Even if you turn the slider **OFF**, the script will **re‑enable interception** on reboot – by design, to keep your network secure and transparently intercepted.
 
 * * *
 
-⚠️ Important Note on "NTP Intercept"
-------------------------------------
+❓ Why Replace the Default NTP?
+------------------------------
 
-Because this script applies its own manual firewall rules (`iptables`) every time the device boots, **the "NTP Intercept" slider in the Firewalla App may no longer reflect reality.**
+Default NTP sends time data in **unencrypted plain text**. Anyone on the path – hacker, ISP, government – can inspect or spoof your time requests (Man‑in‑the‑Middle).
 
-Even if you turn the slider "OFF" in the app, this script will re-enable the interception rules the next time the device reboots. This is intentional design to ensure your network remains secure and transparently intercepted at all times.
+This project replaces the default time service with **Chrony**, configured to use **NTS (Network Time Security)**.
 
-* * *
+### ✅ The Benefits
 
-Why replace the default NTP?
-----------------------------
-
-By default, standard NTP (Network Time Protocol) sends time data in **unencrypted plain text**. Any hacker, ISP, or government agency on the path can inspect or spoof these packets (Man-in-the-Middle attacks).
-
-This project replaces the default service with **Chrony**, configured to use encrypted **NTS (Network Time Security)**.
-
-### The Benefits
-
-1.  **Encryption:** Uses TLS to authenticate the time server. Your router cryptographically verifies that the time is coming from a trusted source (Cloudflare, Government Institutes) and has not been altered.
-2.  **The "Force Field" (Intercept):** Many IoT devices (cameras, smart plugs, Alexa) have hardcoded, insecure time servers. This script uses built-in Firewalla rules to transparently intercept _all_ NTP traffic on your LAN and force it through your secure Chrony stream. The devices don't know it's happening.
-3.  **Robustness:** The script installs itself into Firewalla's persistence folder (`post_main.d`), meaning it will automatically repair and re-install itself after reboots (but probably not with firmware updates).
+*   **Encryption & Authentication** – Chrony uses **TLS** to verify the time server’s identity and ensure the time has not been altered.
+*   **The "Force Field" (Intercept)** – Many IoT devices have hardcoded, insecure NTP servers. This script transparently intercepts **all** NTP traffic on your LAN and redirects it to your secure Chrony instance – devices never know.
+*   **Robustness** – The script installs itself into Firewalla’s persistence folder (`post_main.d`) and automatically **repairs** itself after reboots (though firmware updates may overwrite it – the cron job handles that).
 
 * * *
 
@@ -47,31 +48,37 @@ This project replaces the default service with **Chrony**, configured to use enc
 
 ### Step 1: Prepare the Environment
 
-Firewalla aliases the `apt` command to prevent accidental breakage. You must unalias it for your current session before you can do anything manually.
+Firewalla aliases `apt` to prevent accidental breakage. **Unalias** it for your session:
 
     unalias apt
     unalias apt-get
 
-_Note: You will need to type this again if you log out and log back in._
+_(You’ll need to repeat this if you log out and back in.)_
 
 ### Step 2: Install the Script
 
-1.  SSH into your Firewalla.
-2.  Create the script file: (`vi` is the built in editor, but I use `nano` which I installed via `sudo apt update && sudo apt install nano`.  Never never never run `apt upgrade`. There is a huge chance you will break your Firewalla and have to reflash it.)
+SSH into your Firewalla and create the script file:
 
-    ```bash
     sudo mkdir -p /home/pi/.firewalla/config/post_main.d
     sudo nano /home/pi/.firewalla/config/post_main.d/install_and_enforce_chrony.sh
-    
-4.  Paste the contents of the script provided in this repo.
-5.  Using `ip a` from the Firewalla ssh prompt, find out what interfaces you are using/which networks you want NTS to work with networkwise on the firewalla.  Typically lan1 will be `br0`.  lan2 will be `br1`.
-6.  Scroll down to section 5 of the script and change the interfaces to the ones you want to use.
-7.  Save and Exit (`Ctrl+O`, `Enter`, `Ctrl+X`).
 
-### Step 3: Permission & Run
+Paste the **full script** from this repository (the one provided above).  
+Then save and exit (`Ctrl+O`, `Enter`, `Ctrl+X`).
 
-    chmod +x /home/pi/.firewalla/config/post_main.d/install_and_enforce_chrony.sh
+### Step 3: Make It Executable & Run
+
+    sudo chmod +x /home/pi/.firewalla/config/post_main.d/install_and_enforce_chrony.sh
     sudo /home/pi/.firewalla/config/post_main.d/install_and_enforce_chrony.sh
+
+The script will:
+
+*   **Auto‑discover** all your LAN interfaces (bridges and physical, excluding WAN).
+*   **Auto‑detect** the precise subnets (CIDR) and add them to `chrony.conf` (e.g., `allow 192.168.1.0/24`).
+*   **Install** `chrony` if missing.
+*   **Mask** competing NTP services (`ntp`, `ntpdate`, `systemd-timesyncd`) – without removing packages.
+*   **Add** a daily cron job at **4:00 AM** to re‑apply the configuration after Firewalla updates.
+*   **Append** NTS server IPs to `/etc/hosts` so Chrony can resolve hostnames even when DNS is slow.
+*   **Apply** iptables rules to redirect NTP traffic on all LAN interfaces.
 
 * * *
 
@@ -80,89 +87,105 @@ _Note: You will need to type this again if you log out and log back in._
 
 ### 1\. Check Time Sources
 
-Run `chronyc sources -v`. You should see:
+Run:
 
-*   **`*`** (Asterisk): The Primary server (likely Cloudflare).
-*   **`+`** (Plus): The Backup servers (TimeNL/PTB).
-*   **`?`** (Question Mark): A server that is unreachable (normal during startup/internet hiccups).
-<img width="657" height="273" alt="image" src="https://github.com/user-attachments/assets/233b2fd1-5636-4258-b097-975294d15e75" />
+    chronyc sources -v
 
+You should see:
 
-### 2\. Verify Encryption (NTS)
+*   `^*` – the **primary** server (likely Cloudflare)
+*   `^+` – **backup** servers (TimeNL / PTB)
+*   `^?` – temporarily unreachable (normal during startup)
 
-Run `sudo chronyc authdata`.  
-Look for the **Cookies** column. If you see a number greater than 0 (e.g., `8`), encryption is **ACTIVE**. If it is 0, the handshake failed.
-<img width="607" height="109" alt="image" src="https://github.com/user-attachments/assets/3aca18b0-ab84-4def-b6fc-797886b1b8a5" />
+### 2\. Verify NTS Encryption
+
+Run:
+
+    sudo chronyc authdata
+
+Look at the **Cookies** column. A value **\> 0** (e.g., `8`) means NTS is **active**.  
+If it’s **0**, the handshake failed – but the script will retry.
+
+### 3\. Confirm Firewall Rules
+
+    sudo iptables -t nat -L PREROUTING
+
+You should see a `REDIRECT` rule for NTP (port 123) on your LAN interfaces.
 
 * * *
 
-Adding the Script to Crontab
-----------------------------
-Every time Firewalla reboots or even after some pushed updates without a reboot, the Firewalla will get rid of Chrony and put the NTP back to stock.  To prevent this from happening, add the chrony script to the crontab.
-`crontab -e`
-add the line
-`0 4 * * * /home/pi/.firewalla/config/post_main.d/install_and_enforce_chrony.sh &>/dev/null`
-to the bottom and save. Ths will have the Firewalla run the install script every day at 4 am local time, which is typically a few hours after Firewalla sends out updates.
+🔄 What About Updates & Persistence?
+------------------------------------
 
-***
+*   **Boot persistence:** The script is placed in `post_main.d` – it runs **every boot**.
+*   **Daily cron job:** The script **automatically** adds a cron entry (`0 4 * * *`) to re‑apply everything daily, catching any changes from Firewalla updates.
+*   **Health checks:** Every script run (boot, cron, manual) performs a **lightweight health check** – it verifies that Chrony is running and has at least one source. If Chrony is missing or dead, it restarts it (up to 3 times).
 
-🔧 Technical Details & Caveats
-------------------------------
+* * *
 
-### Fix the Hosts File
+🛠️ Technical Details & Caveats
+-------------------------------
 
-Due to the secure sandbox Firewalla uses, the `_chrony` service user is often blocked from reading the system DNS settings. To bypass this reliable point of failure, this script **hardcodes** the IP addresses of the NTS servers into `/etc/hosts`.
+### Hosts File Fix
 
-Your `/etc/hosts` file should look something like this after the script runs:
-run `cat /etc/hosts`
-```
-127.0.0.1   localhost Firewalla
-162.159.200.123 time.cloudflare.com
-94.198.159.15 ntppool1.time.nl
-192.53.103.108 ptbtime1.ptb.de
-```
+Firewalla’s sandbox often blocks the `_chrony` user from reading system DNS. To bypass this, the script **hardcodes** the NTS server IPs into `/etc/hosts`.  
+After running, your `/etc/hosts` will include:
 
+    162.159.200.123 time.cloudflare.com
+    94.198.159.15 ntppool1.time.nl
+    192.53.103.108 ptbtime1.ptb.de
 
-**Why only 3 servers?** Secure NTS servers are still rare globally. We selected the "Holy Trinity" of stable, static IP providers:
+### Why Only 3 Servers?
 
-*   **Cloudflare:** US/Global (Anycast)
-*   **TimeNL:** Netherlands Government (Static IP)
-*   **PTB:** German National Metrology Institute (Static IP)
+Secure NTS servers are still rare. We selected the "Holy Trinity" of stable, static‑IP providers:
 
-**Limitation:** If these organizations change their physical IP addresses (rare), your sync will fail with that server until you update the IP addresses in the script.
+*   **Cloudflare** – US/Global (Anycast)
+*   **TimeNL** – Netherlands Government (Static)
+*   **PTB** – German National Metrology Institute (Static)
+
+**Limitation:** If these IPs change (rare), you’ll need to update them in the script and `/etc/hosts` manually.
+
+### Auto‑Detection of Interfaces & Subnets
+
+The script automatically discovers:
+
+*   All **bridge** interfaces (`br0`, `br1`, …)
+*   Physical interfaces (if no bridges) – excluding WAN (`wan`, `ppp`, `tun`, `wg`, `vpn`)
+*   For each interface, it extracts the **precise CIDR** (e.g., `192.168.1.0/24`) and adds `allow` lines in `chrony.conf`.
+
+This means **you don’t need to manually edit any interface or subnet settings** – it Just Works™.
 
 * * *
 
 ❌ Uninstall / Revert to Stock
 -----------------------------
 
-If you want to remove Chrony and go back to the default Firewalla time settings, follow these steps exactly.
+If you want to remove Chrony and go back to Firewalla’s default time service, follow these steps **exactly**.
 
-### Step 1: Delete the Persistence Script
-
-This stops the rules from re-applying on the next boot.
+### Step 1: Remove the Persistence Script
 
     sudo rm /home/pi/.firewalla/config/post_main.d/install_and_enforce_chrony.sh
 
-### Step 2: Clean up /etc/hosts
+### Step 2: Delete the Cron Entry
 
-Remove the hardcoded IP addresses we added.
+    sudo sed -i '/# Chrony NTS Service/d' /etc/crontab
+    sudo sed -i '/install_and_enforce_chrony.sh/d' /etc/crontab
+
+### Step 3: Clean Up `/etc/hosts`
 
     sudo sed -i '/time.cloudflare.com/d' /etc/hosts
     sudo sed -i '/ntppool1.time.nl/d' /etc/hosts
     sudo sed -i '/ptbtime1.ptb.de/d' /etc/hosts
 
-### Step 3: Remove Chrony
-
-Uninstall the package and its configurations.
+### Step 4: Remove Chrony
 
     unalias apt
     unalias apt-get
     sudo apt-get remove --purge -y chrony
 
-### Step 4: Restore Default Time Service
+### Step 5: Restore Default Time Service
 
-Firewalla uses `systemd-timesyncd` by default. We need to wake it back up.
+Firewalla uses `systemd-timesyncd` by default:
 
     sudo apt-get update
     sudo apt install systemd-timesyncd -y
@@ -170,6 +193,28 @@ Firewalla uses `systemd-timesyncd` by default. We need to wake it back up.
     sudo systemctl enable systemd-timesyncd
     sudo systemctl start systemd-timesyncd
 
-### Step 5: Reboot (Mandatory)
+### Step 6: Reboot (Mandatory)
 
-You must reboot to flush the manual `iptables` firewall rules from memory and let Firewalla take control again.
+    sudo reboot
+
+A reboot is required to flush the manual `iptables` rules and let Firewalla regain full control.
+
+* * *
+
+🧪 Final Notes
+--------------
+
+*   The script is designed to be **low‑risk** and **revertible** – it never removes packages, never holds them, and only masks services.
+*   It uses **full command paths** (e.g., `/usr/bin/apt-get`) to bypass Firewalla aliases – no surprises.
+*   The cron job runs daily at **4 AM** – well after Firewalla’s typical update window, so any changes are quickly corrected.
+
+* * *
+
+🙏 Credits & Community
+----------------------
+
+This project was built with input from the Firewalla community. If you have improvements or find issues, please open an issue or pull request – contributions are welcome!
+
+**Stay secure, stay synced.** 🚀
+
+_Last updated: June 2026_
