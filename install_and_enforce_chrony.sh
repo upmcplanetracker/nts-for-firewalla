@@ -18,6 +18,12 @@ for i in {1..30}; do
     sleep 2
 done
 
+# -------- STAGE 1.5: CHECK IF CHRONY IS ACTIVE AND IF SO STOP --------
+if systemctl is-active --quiet chrony && iptables -t nat -L PREROUTING -v -n | grep -q "dpt:123.*REDIRECT"; then
+    echo "Chrony already configured and running. Exiting."
+    exit 0
+fi
+
 # --- STAGE 2: FORCE UNLOCK & INSTALL CHRONY ---
 if ! command -v chronyd &> /dev/null; then
     echo "Attempting to install chrony..."
