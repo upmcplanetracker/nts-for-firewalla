@@ -57,7 +57,7 @@ _Note: You will need to type this again if you log out and log back in._
 ### Step 2: Install the Script
 
 1.  SSH into your Firewalla.
-2.  Create the script file: (`vi` is the built in editor, but I use `nano` which I installed via `sudo apt install nano`)
+2.  Create the script file: (`vi` is the built in editor, but I use `nano` which I installed via `sudo apt update && sudo apt install nano`.  Never never never run `apt upgrade`. There is a huge chance you will break your Firewalla and have to reflash it.)
 
     ```bash
     sudo mkdir -p /home/pi/.firewalla/config/post_main.d
