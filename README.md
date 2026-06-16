@@ -59,6 +59,8 @@ _(You’ll need to repeat this if you log out and back in.)_
 
 SSH into your Firewalla and create the script file:
 
+    sudo apt update && sudo apt install nano
+    # never run sudo apt upgrade as ou will break your firewalla
     sudo mkdir -p /home/pi/.firewalla/config/post_main.d
     sudo nano /home/pi/.firewalla/config/post_main.d/install_and_enforce_chrony.sh
 
