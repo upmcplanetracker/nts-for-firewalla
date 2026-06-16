@@ -64,7 +64,7 @@ SSH into your Firewalla and create the script file:
     sudo mkdir -p /home/pi/.firewalla/config/post_main.d
     sudo nano /home/pi/.firewalla/config/post_main.d/install_and_enforce_chrony.sh
 
-Paste the **full script** from this repository (the one provided above).  
+Paste the **full script** from this repository (the one provided [here](https://github.com/upmcplanetracker/nts-for-firewalla/blob/main/install_and_enforce_chrony.sh)).  
 Then save and exit (`Ctrl+O`, `Enter`, `Ctrl+X`).
 
 ### Step 3: Make It Executable & Run
