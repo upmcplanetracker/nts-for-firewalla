@@ -113,6 +113,16 @@ to the bottom and save. Ths will have the Firewalla run the install script every
 
 Due to the secure sandbox Firewalla uses, the `_chrony` service user is often blocked from reading the system DNS settings. To bypass this reliable point of failure, this script **hardcodes** the IP addresses of the NTS servers into `/etc/hosts`.
 
+Your `/etc/hosts` file should look something like this after the script runs:
+run `cat /etc/hosts`
+```
+127.0.0.1   localhost Firewalla
+162.159.200.123 time.cloudflare.com
+94.198.159.15 ntppool1.time.nl
+192.53.103.108 ptbtime1.ptb.de
+```
+
+
 **Why only 3 servers?** Secure NTS servers are still rare globally. We selected the "Holy Trinity" of stable, static IP providers:
 
 *   **Cloudflare:** US/Global (Anycast)
