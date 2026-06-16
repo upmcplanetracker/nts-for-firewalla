@@ -59,12 +59,10 @@ _(You’ll need to repeat this if you log out and back in.)_
 
 SSH into your Firewalla and create the script file:
 
-    sudo apt update && sudo apt install nano
-    # never run sudo apt upgrade as ou will break your firewalla
     sudo mkdir -p /home/pi/.firewalla/config/post_main.d
     sudo nano /home/pi/.firewalla/config/post_main.d/install_and_enforce_chrony.sh
 
-Paste the **full script** from this repository (the one provided [here](https://github.com/upmcplanetracker/nts-for-firewalla/blob/main/install_and_enforce_chrony.sh)).  
+Paste the **full script** from this repository (the one provided above).  
 Then save and exit (`Ctrl+O`, `Enter`, `Ctrl+X`).
 
 ### Step 3: Make It Executable & Run
@@ -120,7 +118,7 @@ You should see a `REDIRECT` rule for NTP (port 123) on your LAN interfaces.
 ------------------------------------
 
 *   **Boot persistence:** The script is placed in `post_main.d` – it runs **every boot**.
-*   **Daily cron job:** The script **automatically** adds a cron entry (`0 4 * * *`) to re‑apply everything daily, catching any changes from Firewalla updates.
+*   **Daily cron job:** The script **automatically** adds a cron entry (`0 4 * * * root /path/to/script.sh`) to the **system crontab** (`/etc/crontab`). This means it runs **as root** and has full permissions to restart services and apply firewall rules.
 *   **Health checks:** Every script run (boot, cron, manual) performs a **lightweight health check** – it verifies that Chrony is running and has at least one source. If Chrony is missing or dead, it restarts it (up to 3 times).
 
 * * *
@@ -156,6 +154,10 @@ The script automatically discovers:
 *   For each interface, it extracts the **precise CIDR** (e.g., `192.168.1.0/24`) and adds `allow` lines in `chrony.conf`.
 
 This means **you don’t need to manually edit any interface or subnet settings** – it Just Works™.
+
+### Cron & Permissions
+
+The script adds the cron job to `/etc/crontab` with the **user field explicitly set to `root`** – so the command runs with full privileges. You do **not** need to prepend `sudo` inside the cron job.
 
 * * *
 
