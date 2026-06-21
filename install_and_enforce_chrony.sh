@@ -313,9 +313,15 @@ $SED -i 's/DAEMON_OPTS="-F 1"/DAEMON_OPTS="-F -1"/g' /etc/default/chrony 2>/dev/
 
 # Append NTS server IPs to /etc/hosts for reliable boot‑time DNS
 $CAT >> /etc/hosts <<EOF
-162.159.200.123 time.cloudflare.com
-94.198.159.15 ntppool1.time.nl
-192.53.103.108 ptbtime1.ptb.de
+# Cloudflare
+162.159.200.1   time.cloudflare.com
+# Netherlands
+94.198.159.15   ntppool1.time.nl
+# Germany
+192.53.103.108  ptbtime1.ptb.de
+# System76
+3.134.129.152   ohio.time.system76.com
+52.203.218.175  virginia.time.system76.com
 EOF
 
 # Build chrony.conf – using hostnames (for NTS certificate validation)
@@ -323,7 +329,14 @@ $CAT > /etc/chrony/chrony.conf <<EOF
 # Chrony NTS Configuration – $($DATE)
 # Using hostnames; IPs are in /etc/hosts for bootstrap.
 
+# Cloudflare Anycast (High Availability)
 server time.cloudflare.com iburst nts
+
+# US Regional (Low Latency / Reliable Handshake)
+server ohio.time.system76.com iburst nts
+server virginia.time.system76.com iburst nts
+
+# European (Geographic Quorum)
 server ntppool1.time.nl iburst nts
 server ptbtime1.ptb.de iburst nts
 
