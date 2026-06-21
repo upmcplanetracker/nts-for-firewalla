@@ -1,11 +1,9 @@
 #!/bin/bash
 
-# --- STAGE 1: ROOT & INITIAL SETTLE ---
 if [ "$EUID" -ne 0 ]; then
   exec sudo "$0" "$@"
 fi
 
-# --- CONFIGURATION ---
 SCRIPT_PATH="$(realpath "$0")"
 SCRIPT_NAME="$(basename "$SCRIPT_PATH")"
 CONFIG_FILE="/etc/chrony-interface.conf"
@@ -17,7 +15,6 @@ CRON_TAG="# Chrony NTS Service"
 CRON_JOB="0 4 * * * $SCRIPT_PATH &>/dev/null"
 CRON_FILE="/etc/crontab"
 
-# --- Bypass Firewalla aliases (use full paths) ---
 APT_GET="/usr/bin/apt-get"
 DPKG="/usr/bin/dpkg"
 SYSTEMCTL="/usr/bin/systemctl"
@@ -182,7 +179,6 @@ enforce_chrony_dominance() {
     fi
 }
 
-# --- STAGE 2: CRONTAB MANAGEMENT (only manual runs) ---
 if [ $FROM_CRON -eq 0 ]; then
     log "Checking crontab..."
     if manage_crontab "check"; then
@@ -198,10 +194,8 @@ if [ $FROM_CRON -eq 0 ]; then
     fi
 fi
 
-# --- STAGE 3: BLOCK COMPETING SERVICES ---
 block_ntp_services
 
-# --- STAGE 4: DISCOVER NETWORK ---
 log "Discovering LAN interfaces..."
 LAN_INTERFACES=$(get_lan_interfaces)
 log "Found: $LAN_INTERFACES"
@@ -209,20 +203,17 @@ LAN_SUBNETS=$(get_lan_subnets)
 log "Detected subnets: $LAN_SUBNETS"
 
 $CAT > "$CONFIG_FILE" <<EOF
-# Chrony Interface Config – $($DATE)
 LAN_INTERFACES="$LAN_INTERFACES"
 LAN_SUBNETS="$LAN_SUBNETS"
 SCRIPT_PATH="$SCRIPT_PATH"
 CRON_JOB="$CRON_JOB"
 EOF
 
-# --- STAGE 5: BOOT SETTLE (only manual runs) ---
 if [ $FROM_CRON -eq 0 ]; then
     log "Waiting 30s for system settle..."
     $SLEEP 30
 fi
 
-# --- STAGE 6: QUICK CHECK – exit if already healthy ---
 if $SYSTEMCTL is-active --quiet chrony && \
    $IPTABLES -t nat -L PREROUTING -v -n 2>/dev/null | $GREP -q "dpt:123.*REDIRECT"; then
     log "Chrony already configured and running."
@@ -252,7 +243,6 @@ if $SYSTEMCTL is-active --quiet chrony && \
     exit 0
 fi
 
-# --- STAGE 7: INTERNET CHECK (manual runs only) ---
 if [ $FROM_CRON -eq 0 ]; then
     log "Checking internet connectivity..."
     INTERNET_UP=0
@@ -270,7 +260,6 @@ if [ $FROM_CRON -eq 0 ]; then
     fi
 fi
 
-# --- STAGE 8: INSTALL CHRONY (if missing) ---
 if ! command -v chronyd &>/dev/null; then
     log "Installing chrony..."
     local lock_wait=0
@@ -299,7 +288,6 @@ if ! command -v chronyd &>/dev/null; then
     done
 fi
 
-# --- STAGE 9: STOP & MASK COMPETITORS (do not remove packages) ---
 log "Disabling other time services..."
 for svc in systemd-timesyncd ntp ntpdate; do
     $SYSTEMCTL stop "$svc" 2>/dev/null || true
@@ -307,11 +295,9 @@ for svc in systemd-timesyncd ntp ntpdate; do
     $SYSTEMCTL mask "$svc" 2>/dev/null || true
 done
 
-# --- STAGE 10: WRITE CHRONY CONFIG ---
 log "Applying chrony configuration..."
 $SED -i 's/DAEMON_OPTS="-F 1"/DAEMON_OPTS="-F -1"/g' /etc/default/chrony 2>/dev/null || true
 
-# Append NTS server IPs to /etc/hosts for reliable boot‑time DNS
 $CAT >> /etc/hosts <<EOF
 # Cloudflare
 162.159.200.1   time.cloudflare.com
@@ -324,7 +310,6 @@ $CAT >> /etc/hosts <<EOF
 52.203.218.175  virginia.time.system76.com
 EOF
 
-# Build chrony.conf – using hostnames (for NTS certificate validation)
 $CAT > /etc/chrony/chrony.conf <<EOF
 # Chrony NTS Configuration – $($DATE)
 # Using hostnames; IPs are in /etc/hosts for bootstrap.
@@ -356,21 +341,17 @@ EOF
 $CHOWN root:root /etc/chrony/chrony.conf
 $CHMOD 644 /etc/chrony/chrony.conf
 
-# --- STAGE 11: START CHRONY ---
 log "Starting chrony..."
 $SYSTEMCTL unmask chrony chronyd 2>/dev/null || true
 $SYSTEMCTL enable chrony
 $SYSTEMCTL restart chrony
 $SLEEP 10
 
-# --- STAGE 12: IPTABLES RULES ---
 log "Applying iptables redirection..."
 apply_iptables_rules
 
-# --- STAGE 13: ENFORCE DOMINANCE AGAIN ---
 enforce_chrony_dominance
 
-# --- STAGE 14: HEALTH CHECK ---
 log "Initial health check..."
 if is_chrony_healthy; then
     log "✅ Chrony is healthy!"
@@ -381,7 +362,6 @@ else
     log "   It will sync in a few minutes."
 fi
 
-# --- STAGE 15: FINAL STATUS ---
 log "=== Chrony Status ==="
 chronyc tracking 2>/dev/null || log "Unable to fetch tracking info"
 log "======================"
