@@ -114,6 +114,64 @@ You should see a `REDIRECT` rule for NTP (port 123) on your LAN interfaces.
 
 * * *
 
+🔍 Troubleshooting FAQ
+----------------------
+
+### Q: One of my servers shows `^?` or `x` – what does that mean?
+
+A `^?` symbol means the server is **unusable right now**. This is perfectly normal if one server is temporarily down or not reachable, and Chrony will automatically retry it. Look at the **Reach** column (octal). A value of `0` means no responses have been received since the last restart; `377` means the server is 100% reachable over the last few polls.
+
+Example output you might see (excerpt):
+
+    ^* time.cloudflare.com           3   6   377    66   -107us[  -91us] +/-   12ms
+    ^+ ohio.time.system76.com        2   6   377     3   -469us[ -469us] +/-   27ms
+    ^? virginia.time.system76.c>     0   8     0     -     +0ns[   +0ns] +/-    0ns
+    ^- ntppool1.time.nl              1   6   377     0  +1826us[+1826us] +/-   54ms
+    ^- ptbtime1.ptb.de               1   7    21    62   -786us[ -786us] +/-   59ms
+
+Here `virginia.time.system76.com` shows `^?` with Reach = `0` – it hasn’t answered any requests yet. This could be a temporary outage, or the server IP/hostname might be wrong. The other servers are fine, so your clock is still secure and accurate.
+
+**What to do:**
+
+1.  Wait 10–15 minutes – Chrony will keep retrying and the reachability register will climb if the server comes back.
+2.  Check DNS resolution: `nslookup virginia.time.system76.com` (should return `52.203.218.175`).
+3.  Verify the IP is reachable: `ping 52.203.218.175`.
+4.  If the server is permanently gone, update the script and `/etc/hosts` with a new NTS server (see _Customizing Your Time Servers_).
+
+### Q: All servers show `^?` or the output is empty. What’s wrong?
+
+This usually indicates Chrony cannot resolve the server hostnames (DNS blocked) or cannot reach the internet on port 123/4460 (NTS). Steps:
+
+1.  Check that Chrony is running: `systemctl status chrony`.
+2.  Look at the Chrony log: `journalctl -u chrony --no-pager | tail -20`. Look for “Could not resolve” or “NTS-KE” errors.
+3.  Ensure the script has added the correct IPs to `/etc/hosts`: `cat /etc/hosts | grep -E 'time.cloudflare|ntppool1|ptbtime1|system76'`. If missing, re‑run the script manually.
+4.  Verify the WAN interface allows outbound NTP/NTS traffic (the script does not block it, but a strict Firewalla policy might). Temporarily disable any NTP‑related rules to test.
+
+### Q: How do I know if NTS encryption is actually working?
+
+Run `sudo chronyc authdata`. If the **Cookies** column for a source is **greater than 0** (e.g., 8), NTS is active for that server. A cookie count of 0 means NTS negotiation failed – Chrony will fall back to plain NTP for that server, which is still better than nothing but not encrypted. If all servers show 0 cookies, check the NTS-KE port (4460/tcp) is allowed outbound and that your ISP is not blocking it.
+
+### Q: I changed the server list in the script, but the new servers don’t work.
+
+*   Did you update both the `server` lines in the `chrony.conf` block **and** the `/etc/hosts` block inside the script? Both must match.
+*   After editing the script, re‑run it manually: `sudo /home/pi/.firewalla/config/post_main.d/install_and_enforce_chrony.sh`.
+*   Verify the new entries in `/etc/hosts` are present and correct.
+*   Check if the server actually supports NTS (the script requires the `nts` option). Use the community list at [https://github.com/jauderho/nts-servers](https://github.com/jauderho/nts-servers).
+
+### Q: The “NTP Intercept” slider in the Firewalla app shows OFF, but clients still can’t use their own NTP servers.
+
+That’s expected. The script enforces interception independently via `iptables` rules at every boot and via cron. The app slider only controls Firewalla’s built‑in intercept feature, not the custom rules. If you truly want to disable interception, you must uninstall the script (see _Uninstall / Revert to Stock_).
+
+### Q: How can I temporarily disable interception for testing?
+
+Manually flush the NAT rules (they will be re‑applied on next cron run or reboot):
+
+    sudo iptables -t nat -F PREROUTING
+
+To restore, re‑run the script: `sudo /home/pi/.firewalla/config/post_main.d/install_and_enforce_chrony.sh`.
+
+* * *
+
 🔄 What About Updates & Persistence?
 ------------------------------------
 
