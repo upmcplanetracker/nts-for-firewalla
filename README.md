@@ -131,17 +131,19 @@ You should see a `REDIRECT` rule for NTP (port 123) on your LAN interfaces.
 Firewalla’s sandbox often blocks the `_chrony` user from reading system DNS. To bypass this, the script **hardcodes** the NTS server IPs into `/etc/hosts`.  
 After running, your `/etc/hosts` will include:
 
-    162.159.200.123 time.cloudflare.com
-    94.198.159.15 ntppool1.time.nl
-    192.53.103.108 ptbtime1.ptb.de
+    162.159.200.1    time.cloudflare.com
+    94.198.159.15    ntppool1.time.nl
+    192.53.103.108   ptbtime1.ptb.de
+    3.134.129.152    ohio.time.system76.com
+    52.203.218.175   virginia.time.system76.com
 
-### Why Only 3 Servers?
+### Why 5 Servers?
 
-Secure NTS servers are still rare. We selected the "Holy Trinity" of stable, static‑IP providers:
+We moved beyond the original "Holy Trinity" to a 5-server quorum to ensure better geographic diversity and failover reliability. Most NTS experts recommend at least 4 servers but no more than 10.As this protocol is less well adopted than NTP, the server ecosystem isn't as mature as NTP. The five I picked are:
 
-*   **Cloudflare** – US/Global (Anycast)
-*   **TimeNL** – Netherlands Government (Static)
-*   **PTB** – German National Metrology Institute (Static)
+*   Cloudflare – Global Anycast
+*   TimeNL & PTB – European government-backed stability
+*   System76 (Ohio & Virginia) – Low-latency US regional redundancy
 
 **Limitation:** If these IPs change (rare), you’ll need to update them in the script and `/etc/hosts` manually.
 
@@ -153,7 +155,16 @@ The script automatically discovers:
 *   Physical interfaces (if no bridges) – excluding WAN (`wan`, `ppp`, `tun`, `wg`, `vpn`)
 *   For each interface, it extracts the **precise CIDR** (e.g., `192.168.1.0/24`) and adds `allow` lines in `chrony.conf`.
 
-This means **you don’t need to manually edit any interface or subnet settings** – it Just Works™.
+This means **you don’t need to manually edit any interface or subnet settings** – it Just Works.
+
+### 🛠 Customizing Your Time Servers
+
+If you want to use different NTS servers (e.g., to prioritize servers closer to your specific geography), you only need to update two places in the script:
+
+1.  **`chrony.conf`**: Update the `server` lines.
+2.  **`/etc/hosts`**: Update the corresponding IP address mappings so the script can resolve them during the boot-up bootstrap phase.
+
+**Tip:** You can find a list of reliable NTS-capable servers at [this Github repo](https://github.com/jauderho/nts-servers).
 
 ### Cron & Permissions
 
@@ -180,6 +191,7 @@ If you want to remove Chrony and go back to Firewalla’s default time service, 
     sudo sed -i '/time.cloudflare.com/d' /etc/hosts
     sudo sed -i '/ntppool1.time.nl/d' /etc/hosts
     sudo sed -i '/ptbtime1.ptb.de/d' /etc/hosts
+    sudo sed -i '/time.system76.com/d' /etc/hosts
 
 ### Step 4: Remove Chrony
 
