@@ -230,7 +230,3 @@ A reboot is required to flush the manual `iptables` rules and let Firewalla rega
 ----------------------
 
 This project was built with input from the Firewalla community. If you have improvements or find issues, please open an issue or pull request – contributions are welcome!
-
-**Stay secure, stay synced.** 🚀
-
-_Last updated: June 2026_
